@@ -400,7 +400,11 @@
       <created>1390399409601</created>
       <updated>1390399409601</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="base64&#10;">
+      <created>1390399457111</created>
+      <updated>1390399457111</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="ToolWindowManager">
@@ -446,7 +450,8 @@
       <TodoPanelSettings />
     </option>
     <MESSAGE value="base64" />
-    <option name="LAST_COMMIT_MESSAGE" value="base64" />
+    <MESSAGE value="base64&#10;" />
+    <option name="LAST_COMMIT_MESSAGE" value="base64&#10;" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager />
