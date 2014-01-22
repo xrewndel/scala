@@ -1,0 +1,112 @@
+<project name="Axiom" basedir="." default="jar">
+	<property name="src.dir" value="src"/>
+	<property name="build.dir" value="build"/>
+	<property name="output.dir" value="${build.dir}/classes"/>
+	<property name="jar.dir" value="${build.dir}/jar"/>
+  <property name="deps.dir" value="lib"/>
+	<property name="config.dir" value="config"/>
+	<property name="tests.dir" value="tests"/>
+	<property name="tests.build.dir" value="${tests.dir}/build"/>
+	<property name="tests.output.dir" value="${tests.build.dir}/classes"/>
+  <property name="integrator.dir" value="../../IntegratorCoreComponent"/>
+	
+	<!-- mainly for testing -->
+	<property file="build.properties"/>
+	
+	<!-- paths -->
+	<path id="java.classpath">
+	  <fileset dir="${deps.dir}" includes="*.jar" />
+    <fileset dir="${integrator.dir}/lib" includes="*.jar" />
+    <fileset dir="${integrator.dir}/build/jar" includes="*.jar" />
+  </path>
+  
+  <!-- scala.home & scalatest.jar taken from build.properties -->
+  <path id="scala.classpath">
+    <pathelement location="${scala.home}/lib/scala-library.jar"/>
+    <pathelement location="${scala.home}/lib/scala-compiler.jar"/>
+  </path>
+  
+  <path id="scalatest.classpath">
+    <pathelement location="${scalatest.jar}"/>
+    <pathelement location="${scala.home}/lib/scala-library.jar"/>
+  </path>
+  
+  <taskdef resource="scala/tools/ant/antlib.xml" classpathref="scala.classpath"/>
+	
+	<!-- clean -->
+  <target name="clean">
+    <echo message="cleaning..." />
+    <delete dir="${build.dir}"/>
+  </target>
+  
+  <!-- create -->
+  <target name="create" depends="clean">
+    <echo message="creating directories..." />
+    <mkdir dir="${build.dir}"/>
+    <mkdir dir="${output.dir}"/>
+    <mkdir dir="${jar.dir}"/>
+  </target>
+	
+  <!-- compile -->
+  <target name="compile" depends="create">
+    <ant antfile="${integrator.dir}/build.xml" target="build" inheritAll="false" />
+    <echo message="compiling sources..." />
+    <scalac destdir="${output.dir}">
+      <src path="${src.dir}"/>
+      <exclude name="scala/TestApplication.scala"/>
+      <classpath refid="java.classpath"/>
+      <classpath refid="scala.classpath"/>
+    </scalac>
+  </target>
+  
+  <!-- build -->
+  <target name="build" depends="create,compile">
+    <echo message="building jar..." />
+    <jar destfile="${jar.dir}/axiom-api.jar">
+      <fileset dir="${output.dir}"/>
+    </jar>
+    <copy file="${config.dir}/log4j-debug.properties" tofile="${jar.dir}/log4j.properties"/>
+  </target>
+  
+  <!-- tests -->
+  <taskdef name="scalatest" classname="org.scalatest.tools.ScalaTestAntTask">
+    <classpath refid="scalatest.classpath"/>
+    <classpath refid="java.classpath"/>
+    <classpath>
+      <pathelement location="${jar.dir}/axiom-api.jar"/>
+    </classpath>
+  </taskdef>
+  
+  <target name="tests-clean">
+    <echo message="cleaning tests..." />
+    <delete dir="${tests.build.dir}"/>
+  </target>
+  
+  <target name="tests-create" depends="tests-clean">
+    <echo message="creating directories for tests..." />
+    <mkdir dir="${tests.build.dir}"/>
+    <mkdir dir="${tests.output.dir}"/>
+  </target>
+  
+  <target name="tests-compile" depends="tests-create">
+    <echo message="compiling test sources..." />
+    <scalac destdir="${tests.output.dir}">
+      <src path="${tests.dir}/src"/>
+      <classpath refid="java.classpath"/>
+      <classpath refid="scalatest.classpath"/>
+      <classpath>
+        <pathelement location="${jar.dir}/axiom-api.jar"/>
+      </classpath>
+    </scalac>
+    <copy file="${config.dir}/log4j-null.properties" tofile="${tests.output.dir}/log4j.properties"/>
+  </target>
+  
+  <target name="test" depends="tests-compile">
+    <scalatest runpath="${tests.output.dir}" haltonfailure="false" fork="false">
+      <!-- reporters -->
+      <reporter type="stdout" />
+      <!-- run top-level suite -->
+      <suite classname="tests.axiom.Tests"/>
+    </scalatest>
+  </target>
+</project>
