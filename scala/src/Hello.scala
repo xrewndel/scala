@@ -1,4 +1,5 @@
 
+import javax.xml.bind.DatatypeConverter
 import scala.collection.generic.{SeqFactory, GenSeqFactory}
 import scala.io.Source
 import scala.Some
@@ -301,31 +302,31 @@ object Hello extends App {
 
 
   val irn = response \\ "initializeResponse" filter (e => e.namespace == "http://www.ogloba.com/ew/wsg/")
-  println("1: " + irn)
+  //println("1: " + irn)
 
   val name = (response \\ "initializeResponse").filter(_.prefix == "ns2")
-  println("2: " + name.getClass)
+  //println("2: " + name.getClass)
 
   val name3 = (response \\ "initializeResponse").filter(_.prefix == "ns2") flatMap { _ match {
     case e:Elem => e
     //case _ => NodeSeq.Empty
     case _ => None
   } }
-  println("3: " + name3.getClass)
-
-  //params.foldLeft(<root/>.copy(label = root)) {
-  //case (acc, (k, v)) => acc.copy(child = acc.child :+ <tag>{v}</tag>.copy(label=k))
-
-  /*val name4 = (response \\ "initializeResponse").filter(_.prefix == "ns2") flatMap { _ match {
-    case e:Elem => (e.label, e.text)
-    //case _ => NodeSeq.Empty
-    //case _ => None
-  } }
-  println("4: " + name4)*/
-
+  //println("3: " + name3.getClass)
 
   val successful = (irn \\ Params.isSuccessful).text.toBoolean
-  println(successful)
+  //println(successful)
+
+  // base64
+  val str = "TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4= "
+  //val b = DatatypeConverter.parseBase64Binary(str)
+  //println("B:"+b)
+  val result = new String(DatatypeConverter.parseBase64Binary(str))
+  //println("RES:" + result)
+
+  private def encodeBase64(sre: String) = new String(DatatypeConverter.parseBase64Binary(str))
+
+  println(encodeBase64(str))
 
 }
 
