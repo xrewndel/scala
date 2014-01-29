@@ -8,13 +8,13 @@ import javax.xml.bind.{JAXBElement, DatatypeConverter}
 import javax.xml.datatype.{DatatypeConstants, DatatypeFactory, XMLGregorianCalendar}
 import javax.xml.ws.{Holder, BindingProvider}
 import javax.xml.ws.handler.Handler
-import scala.Some
+import scala.collection.JavaConverters._
 
 /**
  * Created by Andrew on 28.01.14.
  */
 class AxiomRawAPI(url: String, terminalId: String, cashierId: String, passphrase: String, locale: String = "EN") {
-  import AxiomRawAPI._
+  //import AxiomRawAPI._
 
   /** Connect timeout */
   val TIMEOUT = 60 // seconds
@@ -23,7 +23,7 @@ class AxiomRawAPI(url: String, terminalId: String, cashierId: String, passphrase
   private var _id = -1
   private def shiftID: Integer = { _id = (_id + 1) % 99; _id + 1 }
   private var transID = 0
-  private def transactionNumber = {transID = transID + 1 }
+  protected def transactionNumber = {transID = transID + 1; transID.toString }
 
   // request timeout
   val REQUEST_TIMEOUT = 65000 // milliseconds
@@ -43,8 +43,8 @@ class AxiomRawAPI(url: String, terminalId: String, cashierId: String, passphrase
     //})
 
     // SOAP logging
-    val bind = ws.asInstanceOf[BindingProvider].getBinding()
-    bind.setHandlerChain(getHandlerChain())
+    //val bind = ws.asInstanceOf[BindingProvider].getBinding()
+    //bind.setHandlerChain(getHandlerChain())
 
     def getHandlerChain(): java.util.List[javax.xml.ws.handler.Handler[_ <: javax.xml.ws.handler.MessageContext]] = {
       List[Handler[_ <: javax.xml.ws.handler.MessageContext]](new SOAPLoggingHandler()).asJava
@@ -58,11 +58,6 @@ class AxiomRawAPI(url: String, terminalId: String, cashierId: String, passphrase
   request.setTerminalId(terminalId)
   request.setLocale(locale)
   request.setCashierId(cashierId)
-
-  val reconcileRecord = new ReconciliationRecord
-  reconcileRecord.setTransactionTerminalId(terminalId)
-  reconcileRecord.setTransactionCashierId(cashierId)
-  val reconcile = new ReconciliationRecords
 
 
   /**
@@ -92,9 +87,6 @@ class AxiomRawAPI(url: String, terminalId: String, cashierId: String, passphrase
    * @return balance: String
    */
   def shiftAction(action: ShiftAction, date: Date = new Date()): Double = {
-    reconcile.setBusinessDay(fmtDate(date))
-    reconcileRecord.setTransactionTime(fmtTime(date))
-
     val balance = new Holder[java.lang.Double]
     val isOk = new Holder[java.lang.Boolean]
 
@@ -114,8 +106,7 @@ class AxiomRawAPI(url: String, terminalId: String, cashierId: String, passphrase
    * @param gencode: Product Code
    * @return referenceNumber: Int
    */
-  def reservePincode(cashRegisterNumber: String, gencode: String,
-                     track2: String = "", loyaltyCardNumber: String = ""): String = {
+  def reservePincode(cashRegisterNumber: String, gencode: String, track2: String = "", loyaltyCardNumber: String = ""): String = {
     val referenceNumber = new Holder[String]
     val isOk = new Holder[java.lang.Boolean]
 
@@ -125,12 +116,6 @@ class AxiomRawAPI(url: String, terminalId: String, cashierId: String, passphrase
     assert(isOk.value)
 
     // there is loyaltyCardTotalPoints also returns (as number) in spec but wsdl implementation doesn't contain this param
-    if (referenceNumber.value != null) {
-      reconcile.setCashRegisterNumber(cashRegisterNumber)
-      reconcileRecord.setCashRegisterNumber(cashRegisterNumber)
-      reconcileRecord.setReferenceNumber(referenceNumber.value)
-      reconcileRecord.setGencode(gencode)
-    }
     referenceNumber.value // Number in spec but String in wsdl implementation
   }
 
@@ -152,42 +137,20 @@ class AxiomRawAPI(url: String, terminalId: String, cashierId: String, passphrase
    * @param referenceNumber
    * @return referenceNumber: String
    */
-  def confirmReservation(referenceNumber: String, ticketReq: java.lang.Boolean = false): ConfirmResult = {
+  def confirmReservation(referenceNumber: String, transNum: String, ticketReq: java.lang.Boolean = false): ConfirmResult = {
     val isOk = new Holder[java.lang.Boolean]
     val amount = new Holder[java.lang.Integer]
     val pincodes = new Holder[Pincodes]
-    //val originalLoyaltyCardTotalPoint = new Holder[javax.xml.bind.JAXBElement]
     val originalLoyaltyCardTotalPoint = new Holder[java.lang.Integer]
-    val test = new Holder[JAXBElement[Integer]]
     val newLoyaltyCardPoint = new Holder[java.lang.Integer]
     val loyaltyCardTotalPoint = new Holder[java.lang.Integer]
     val ticket = new Holder[java.lang.String]
 
-    import Transaction._
-    val transactionNumber = transNum()
-    reconcileRecord.setTransactionNumber(transactionNumber)
-
     ws.confirmReservation(request.getTerminalId, request.getSessionId, request.getLocale, request.getCashierId, ticketReq,
-      referenceNumber, transactionNumber, isOk, amount, pincodes, originalLoyaltyCardTotalPoint, newLoyaltyCardPoint,
+      referenceNumber, transNum, isOk, amount, pincodes, originalLoyaltyCardTotalPoint, newLoyaltyCardPoint,
       loyaltyCardTotalPoint, ticket)
 
     assert(isOk.value)
-
-    //ConfirmResult(amount.value, pincodes.value, originalLoyaltyCardTotalPoint.value, newLoyaltyCardPoint.value,
-    //  loyaltyCardTotalPoint.value, decodeBase64(ticket.value))
-
-    /*val response = new ConfirmReservationResponse
-    response.setAmount(amount.value) // not required in spec but always return according to wsdl
-    if (pincodes.value != null)                       response.setPincodes(pincodes.value)
-    if (originalLoyaltyCardTotalPoint.value != null)  response.setOriginalLoyaltyCardTotalPoint(originalLoyaltyCardTotalPoint.value)
-    if (newLoyaltyCardPoint.value != null)            response.setNewLoyaltyCardPoint(newLoyaltyCardPoint.value)
-    if (loyaltyCardTotalPoint.value != null)          response.setLoyaltyCardTotalPoint(loyaltyCardTotalPoint.value)
-    if (ticket.value != null)                         response.setTicket(decodeBase64(ticket.value))
-
-    ConfirmReservationResponse
-    */
-    setPinSerial(pincodes)
-    reconcileRecord.setAmount(amount.value)
 
     ConfirmResult(amount, pincodes, originalLoyaltyCardTotalPoint, newLoyaltyCardPoint, loyaltyCardTotalPoint, ticket)
   }
@@ -210,12 +173,25 @@ class AxiomRawAPI(url: String, terminalId: String, cashierId: String, passphrase
    * @param status - transactionStatus (R, C, Y, N)
    * @return true or false
    */
-  def reconciliation(cashRegisterNumber: String, dt: Date, status: String): Boolean = {
+  def reconciliation(cashRegisterNumber: String, dt: Date, refNum: String, gencode: String, tNum: String, amount: Int,
+                     serial: String, status: String): Unit = {
+    val reconcileRecord = new ReconciliationRecord
+    reconcileRecord.setTransactionTerminalId(terminalId)
+    reconcileRecord.setTransactionCashierId(cashierId)
+    reconcileRecord.setTransactionTime(fmtTime(dt))
+    reconcileRecord.setCashRegisterNumber(cashRegisterNumber)
+    reconcileRecord.setReferenceNumber(refNum)
+    reconcileRecord.setGencode(gencode)
+    reconcileRecord.setTransactionNumber(tNum)
+    reconcileRecord.setAmount(amount)
+    reconcileRecord.setPincodeSerial(serial)
     reconcileRecord.setTransactionStatus(status)
-    reconcile.setReconciliationRecords(reconcileRecord)
+
+    val reconcileList = new ReconciliationRecords
+    reconcileList.getReconciliationRecord().add(reconcileRecord);
 
     ws.reconcile(request.getTerminalId, request.getSessionId, request.getLocale, request.getCashierId,
-    cashRegisterNumber, fmtDate(dt), reconcile)
+    cashRegisterNumber, fmtDate(dt), reconcileList)
   }
 
 
@@ -238,29 +214,16 @@ class AxiomRawAPI(url: String, terminalId: String, cashierId: String, passphrase
   }
 
 
-  private def setPinSerial(codes: Holder[Pincodes]): Unit =
+  /*private def setPinSerial(codes: Holder[Pincodes]): Unit =
     if (codes.value != null && codes.value.getPincode.size() > 0)
       reconcileRecord.setPincodeSerial(codes.value.getPincode.get(0).getPincodeSerial)
     else reconcileRecord.setPincodeSerial("")
-
+  */
 
   /** Decode string in Base64 into readable view */
   //private def decodeBase64(str: String) = new String(DatatypeConverter.parseBase64Binary(str))
-}
 
-private object AxiomRawAPI {
-  trait ShiftAction { val value: String }
-  object ShiftAction {
-    case object Open extends ShiftAction { val value = "O" }
-    case object Close extends ShiftAction { val value = "C" }
-  }
-
-  object Transaction{
-    private var transactionNumber = 0
-    def transNum(): String = { transactionNumber = transactionNumber + 1; transactionNumber.toString }
-  }
-
-  case class ConfirmResult(amount: Int, pin: Pincodes = Pincodes, originalLoyaltyCardTotalPoint: Int = 0,
+  case class ConfirmResult(amount: Int, pin: Pincodes = new Pincodes, originalLoyaltyCardTotalPoint: Int = 0,
                            newLoyaltyCardPoint: Int = 0, loyaltyCardTotalPoint: Int = 0, ticket: String = "")
   object ConfirmResult {
 
@@ -280,16 +243,11 @@ private object AxiomRawAPI {
     }
   }
 
-  /*
-  class ConfirmResult2() {
-    var amount: Int = 0
-    var pin: Pincodes = Pincodes
-    var originalLoyaltyCardTotalPoint: Int = 0
-    var newLoyaltyCardPoint: Int = 0
-    var loyaltyCardTotalPoint: Int = 0
-    var ticket: String = ""
-  }*/
+  trait ShiftAction { val value: String }
+  object ShiftAction {
+    case object Open extends ShiftAction { val value = "O" }
+    case object Close extends ShiftAction { val value = "C" }
+  }
 
-  //type APIException = ws.ErrorException
 }
 
