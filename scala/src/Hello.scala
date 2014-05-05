@@ -1,12 +1,25 @@
-
+import net.fmb.integrator.serviceprovider.efresh.Sequence
+import scalikejdbc.AutoSession
+import scalikejdbc.ConnectionPool
+import scalikejdbc._, SQLInterpolation._
+import amdrew.ws.Reconcile.ReconciliationRecords
+import amdrew.ws.Reconcile.ReconciliationRecords.ReconciliationRecord
+import java.io.{FileInputStream, File}
+import java.lang.String
+import java.security.{PublicKey, KeyFactory, PrivateKey}
+import java.security.spec.{X509EncodedKeySpec, PKCS8EncodedKeySpec}
+import javax.net.ssl.{HostnameVerifier, SSLSession}
 import javax.xml.bind.DatatypeConverter
 import scala.collection.generic.{SeqFactory, GenSeqFactory}
+import scala.collection.immutable.ListMap
 import scala.io.Source
 import scala.Some
-import scala.xml._
-import Params.ValueSet
 import scala.xml.{TopScope, Elem}
-
+import amdrew.ws._
+import javax.xml.ws.{Holder, BindingProvider}
+import javax.xml.datatype.{XMLGregorianCalendar, DatatypeConstants, DatatypeFactory}
+import java.util.{Calendar, Date, GregorianCalendar}
+import scala.collection.JavaConverters._
 object Hello extends App {
   //args.foreach(println)
 
@@ -25,25 +38,10 @@ object Hello extends App {
   //val res = txt filter { _.length >= len } slice (start, end)
   //println(res)
 
-
-  // template of params for all requests
-  /*val template = Map(
-    "terminalId" -> "1",
-    "cashierId" -> "2",
-    "sessionId" -> "3"
-  )           */
-
-  val template = Map(
-    Params.cashier -> Params.cashier,
-    Params.session -> Params.session
-  )
-
-  //println(createXML2("tag", template))
-
   val map = Map("unum" -> "daya", "duobus" -> "biyu", "tribus" -> "uku")
 
-  val xml1 = createXML("tag", template)
-  //println("XML1: " + xml1)
+  val xml1 = createXML("")
+  println("XML1: " + xml1)
   val xml2 = createXML("root", map)
   //println("XML2: " + xml2)
   val sss = xml1 +: (<ddd>{xml2}</ddd>)       // correct
@@ -51,8 +49,7 @@ object Hello extends App {
   val sss2 = xml1 ++ {xml2}
   //println("SSS2: " + sss2)
 
-
-  def createXML(root: String, params: Map[String, String]): xml.Elem = {
+  def createXML(root: String, params: Map[String, String] = Map()): xml.Elem = {
     params.foldLeft(<root/>.copy(label = root)) {
       case (acc, (k, v)) => acc.copy(child = acc.child :+ <tag>{v}</tag>.copy(label=k))
     }
@@ -61,17 +58,6 @@ object Hello extends App {
   implicit def map2xml(map: Map[String, String]) = new {
     def toXML(root: String = "root") = createXML(root, map)
   }
-
-  private var _id = -1
-  def shiftID = { _id = (_id + 1) % 99; _id + 1 }
-  //println(0 to 100 foreach { _ => println(shiftID) } )
-
-  //println(createXML2("root", map)) // res10: scala.xml.Elem = <radix><unum>daya</unum><duobus>biyu</duobus><tribus>uku</tribus></radix>
-  //println(map.toXML("tushen")) // res11: scala.xml.Elem = <tushen><unum>daya</unum><duobus>biyu</duobus><tribus>uku</tribus></tushen>
-
-
-  val x = <root><unum>1,2,3</unum></root>
-  println(x)
 
   /*case class PincodeRecord(pincodeSerial: String, pincode1: String, pincode2: String = "", expiredDate: String)
   object PincodeRecord {
@@ -92,206 +78,77 @@ object Hello extends App {
     }
   }  */
 
-  case class PincodeRecord(pincodeSerial: String, pincode1: String, pincode2: String = "", expiredDate: String)
-  object PincodeRecord {
-    def apply(response: Map[String, String]): PincodeRecord = {
-      response.get(Params.pincodes).get.split(",").toList match {
-        case List(a, b, c) => PincodeRecord(a, b, expiredDate = c)
-        case List(a, b, c, d) => PincodeRecord(a, b, c, d)
-      }
-    }
-  }
-
-  val m = Map(Params.pincodes -> "q,w,e,r")
-  println(PincodeRecord(m))
-
-  val cr = Map(Params.amount -> "1234", Params.pincodes -> "q,w,e,r"/*, Params.ticket -> "adsfgsdfhsdfhsdfhdfs"*/)
-  case class ConfirmResult(pincodes: List[PincodeRecord], amount: Int, originalLoyaltyCardTotalPoint: Int = 0,
-                           newLoyaltyCardPoint: Int = 0, loyaltyCardTotalPoint: Int = 0, ticket: String = "")
-  object ConfirmResult {
-    def apply(response: Map[String, String]): ConfirmResult = {
-      def %(name: String): Int = response.get(name).get match {
-        case "" => 0 //  It can return “” instead of zero (from API Documentation)
-        case num => num.toInt
-      }
-
-      def %%(name: String) = response.get(name) match { case Some(v) => v; case None => "" }
-
-      ConfirmResult(List(PincodeRecord(response)), %(Params.amount), ticket = %%(Params.ticket))
-    }
-  }
-
-  println(ConfirmResult(cr))
+  val response = <PINRESPONSE>
+    <VERSION>2.0</VERSION>
+    <REFNO>1234567890350001</REFNO>
+    <TRANSNO>343434343434</TRANSNO>
+    <STATUSCODE>0</STATUSCODE>
+    <STATUSDESCRIPTION>Pin Delivered</STATUSDESCRIPTION>
+      <PINDATA>
+        <PIN>123456</PIN>
+        <CUSTOM1>123456</CUSTOM1>
+        <CUSTOM2>123456</CUSTOM2>
+        <PINSERIAL>123456</PINSERIAL>
+        <PINBATCH>123456</PINBATCH>
+        <EXPIRYDATE>2006/01/01</EXPIRYDATE>
+        <DATESOLD>2008-06-13 15:26:52</DATESOLD>
+      </PINDATA>
+    </PINRESPONSE>
 
 
-  println(Reserve(Map(Params.ref -> "12345"/*, Params.loyalty -> ""*/)))
+  println("Class: " + response.getClass)
+  val pin = (response \ "PINDATA")
+  //println("PIN class: " + pin.getClass)
+  val resMap = Map(response \ "_" filter { _.isInstanceOf[xml.Elem] } map { el => el.label -> el.text.trim }: _*) -("PINDATA")
+  //println("RESULT= " + resMap)
+  //val resMap2 = resMap.-("PINDATA")
+  //println("resMap2= "+resMap2)
 
-  case class Reserve(referenceNumber: Int, loyaltyCardTotalPoints: Int = 0)
-  object Reserve {
-    def apply(response: Map[String, String]): Reserve = {
-      def %%(name: String) = response.get(name) match { case Some(v) => v; case None => "" }
+  val pinMap = Map(pin \ "_" filter { _.isInstanceOf[xml.Elem] } map { el => el.label -> el.text.trim }: _*)
+  //println("PIN= "+pinMap)
 
-      Reserve(%%(Params.ref).toInt, %%(Params.loyalty) match {
-          case "" => 0 //  It can return “” instead of zero (from API Documentation)
-          case number => number.toInt
-        }
-      )
-    }
-  }
+  val last = xml2Map(response) -("PINDATA") ++ xml2Map(response \ "PINDATA")
+  println("LAST: " + last)
 
-  def apply(response: Map[String, String]): ConfirmResult = {
-    def %(name: String): Int = response.get(name).get match {
-      case "" => 0 //  It can return “” instead of zero (from API Documentation)
-      case number => number.toInt
-      //case _ => throw ResponseStatus(err)
-      case _ => 0
+  def xml2Map(obj: scala.xml.NodeSeq) = Map(obj \ "_" filter { _.isInstanceOf[xml.Elem] } map { el => el.label -> el.text.trim }: _*)
+  val test = xml2Map(pin)
+  //println("TEST: " + test)
+
+  val o2m = object2Map(response)
+  println("\nO2M: " + o2m)
+
+  def object2Map(o: AnyRef, exclude: String = ""): Map[String, String] =
+    (ListMap[String, String]() /: o.getClass.getDeclaredFields.filterNot(_.getName.startsWith("$"))) { (a, f) =>
+      f.setAccessible(true)
+      if (!f.getName.equals(exclude))
+        a + (f.getName -> ( if (f.get(o) == null) null else if (f.get(o) == None) "" else  f.get(o).toString))
+      else a
     }
 
-    def %%(name: String) = response.get(name) match { case Some(v) => v; case None => "" }
-    //def %%(name: String) = response.get(name).get
+  //println("2MAP: " + (resMap ++ pinMap))
 
-    ConfirmResult(List(PincodeRecord(response)), %(Params.amount), ticket = %%(Params.ticket))
+  //for (n <- response.child) {
+  //   if (n.nonEmptyChildren.size > 1) println("!!!:" + n.label + ":"+ n.child + "::" + n.text)
+  //}
 
-    //ConfirmResult(List(PincodeRecord(response)), %(Params.amount), ticket = if (response.contains(Params.ticket)) %%(Params.ticket) else "")
+  val result = (response \ "PINDATA") map { x => ((x \ "@name").text -> x) } toMap
+  val err = (for{x <- response \ "PINDATA"} yield (x \ "@name", x)).toMap
+  //println("ERR:" + result)
+  println(response.contains("BALANCE"))
 
-    //if (response.contains(Params.ticket))
-    //  ConfirmResult(List(PincodeRecord(response)), %(Params.amount), ticket = %%(Params.ticket))
-    //else
-    //  ConfirmResult(List(PincodeRecord(response)), %(Params.amount))
+  for (n <- response.child) {
+    //println(n.label + ":" + n.child.size + "\n")
+   val m = n.nonEmptyChildren.size match {
+      //case 1 => Map(n.label -> n.text)
+      //case num => if (num > 1) Map(n.label -> n.text)
+      case l if(l == 1) => Map(n.label -> n.text)
+      case l if(l > 1) => Map(n.label -> n.text)
+      case _ => Nil
+    }
+    //println("M:" + m)
   }
 
-
-
-
-  val v = (x \\ "unum").text.split(",").toList
-  val list = List("pincodeSerial", "pincode1", "pincode2", "expiredDate")
-  val res = (list zip v).toMap
-  //println(res)
-
-
-  /*private val transactionNumber = new java.util.concurrent.atomic.AtomicLong(Long.MaxValue - 3)
-  def transaction() = {
-    transactionNumber.compareAndSet(Long.MaxValue, 1)
-    transactionNumber.getAndIncrement
-  }      */
-
-  /*import Foo.transaction
-
-  transaction()
-  transaction()
-  transaction()
-  transaction()
-  transaction()
-  transaction()
-  transaction()
-  println(transaction())
-  */
-  val foo1 = new Foo
-  foo1.add
-
-  val foo2 = new Foo
-  foo2.add
-
-  val foo3 = new Foo
-  foo3.add
-
-  //println(foo3.add)
-
-  //println(Params.amount)
-  //println(Params.day)
-
-  val template1 = Map(
-    Params.terminal -> Params.terminal,
-    Params.cashier -> Params.cashier,
-    Params.day -> Params.day
-  )
-
-  //println(template1.getClass)
-
-  val s = template1.get(Params.session)
-  //println(s)
-
-  /*
-  - cashRegisterNumber
-  - referenceNumber
-  - transactionTermnalId(The POS terminal ID did the transaction)
-  - transactionCashierId(Cashier Id did the transaction)
-  - transactionNumber
-  - transactionTime (format : yyyy-MMdd'T'HH:mm:ss.SSS)
-  - gencode
-  - pincodeSerial
-  - amount
-  - transactionStatus (R, C, Y, N)
-  */
-  for(a <- 1 until 10){
-    //println( "Value of a: " + a );
-  }
-
-  val params = List("cashRegisterNumber", "referenceNumber", "transactionTermnalId", "transactionCashierId",
-    "transactionNumber", "transactionTime", "gencode", "pincodeSerial", "amount", "transactionStatus")
-
-  //println(Map(params map {s => (s, 1)}: _*))
-
-  val lst = List.apply(Map(params map {s => (s, 1)}: _*))
-  //println("LST:" + lst)
-
-  /*def mkMap(idx: Int) : Map[String, String] = {
-    val res = params map {s => (s, idx)}
-    res
-  }*/
-
-  val soap = <soapenv:Envelope
-  xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-  xmlns:wsg="http://www.ogloba.com/ew/wsg/">
-    <soapenv:Header/>
-    <soapenv:Body>
-      <wsg:initialize>
-        <terminalId>34753001001</terminalId>
-        <cashierId>339</cashierId>
-        <passphrase>U51lWQe9Xbd169Bci20s7zMi758SET7K</passphrase>
-      </wsg:initialize>
-    </soapenv:Body>
-  </soapenv:Envelope>
-
-  //println(soap)
-  //println()
-
-  val body =
-    <wsg:initialize>
-      <terminalId>34753001001</terminalId>
-      <cashierId>339</cashierId>
-      <passphrase>U51lWQe9Xbd169Bci20s7zMi758SET7K</passphrase>
-  </wsg:initialize>
-
-  val head = <soapenv:Envelope
-  xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-  xmlns:wsg="http://www.ogloba.com/ew/wsg/">
-    <soapenv:Header/>
-    <soapenv:Body>{body}</soapenv:Body>
-  </soapenv:Envelope>
-
-  //println(head)
-
-
- val req = Map("terminalId" ->"34753001001",
-   "cashierId" -> "339",
-   "passphrase" -> "U51lWQe9Xbd169Bci20s7zMi758SET7K")
-
-  //doRequest("initialize", req)
-
-  protected def doRequest(node: String, request: Map[String, String]) = {
-    //val data = createXML(node, template ++ request).toString()
-    val data = <soapenv:Envelope
-    xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
-    xmlns:wsg="http://www.ogloba.com/ew/wsg/">
-      <soapenv:Header/>
-      <soapenv:Body>{createXML("wsg:" + node, template ++ request)}</soapenv:Body>
-    </soapenv:Envelope>
-
-    //println(data)
-  }
-
-  val response = <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  val response2 = <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
     <soap:Body>
       <ns2:initializeResponse xmlns:ns2="http://www.ogloba.com/ew/wsg/">
         <isSuccessful>true</isSuccessful>
@@ -301,69 +158,117 @@ object Hello extends App {
   </soap:Envelope>
 
 
-  val irn = response \\ "initializeResponse" filter (e => e.namespace == "http://www.ogloba.com/ew/wsg/")
+  val irn = response2 \\ "initializeResponse" filter (e => e.namespace == "http://www.ogloba.com/ew/wsg/")
   //println("1: " + irn)
 
-  val name = (response \\ "initializeResponse").filter(_.prefix == "ns2")
+  val name = (response2 \\ "initializeResponse").filter(_.prefix == "ns2")
   //println("2: " + name.getClass)
 
-  val name3 = (response \\ "initializeResponse").filter(_.prefix == "ns2") flatMap { _ match {
+  val name3 = (response2 \\ "initializeResponse").filter(_.prefix == "ns2") flatMap { _ match {
     case e:Elem => e
     //case _ => NodeSeq.Empty
     case _ => None
   } }
   //println("3: " + name3.getClass)
 
-  val successful = (irn \\ Params.isSuccessful).text.toBoolean
-  //println(successful)
+  val secret = " NewSequence NewProductVer NewSoftVer GroupId".trim.split(" ").toList.head
+  println("secret out:" + secret)
 
-  // base64
-  val str = "TWFuIGlzIGRpc3Rpbmd1aXNoZWQsIG5vdCBvbmx5IGJ5IGhpcyByZWFzb24sIGJ1dCBieSB0aGlzIHNpbmd1bGFyIHBhc3Npb24gZnJvbSBvdGhlciBhbmltYWxzLCB3aGljaCBpcyBhIGx1c3Qgb2YgdGhlIG1pbmQsIHRoYXQgYnkgYSBwZXJzZXZlcmFuY2Ugb2YgZGVsaWdodCBpbiB0aGUgY29udGludWVkIGFuZCBpbmRlZmF0aWdhYmxlIGdlbmVyYXRpb24gb2Yga25vd2xlZGdlLCBleGNlZWRzIHRoZSBzaG9ydCB2ZWhlbWVuY2Ugb2YgYW55IGNhcm5hbCBwbGVhc3VyZS4= "
-  //val b = DatatypeConverter.parseBase64Binary(str)
-  //println("B:"+b)
-  val result = new String(DatatypeConverter.parseBase64Binary(str))
-  //println("RES:" + result)
 
-  private def encodeBase64(sre: String) = new String(DatatypeConverter.parseBase64Binary(str))
-
-  println(encodeBase64(str))
-
-}
-
-class Foo{
-  import Transaction.get
-  def add = get()
-}
-
-object Transaction{
-  private val transactionNumber = new java.util.concurrent.atomic.AtomicLong(1)
-  def get() = {
-    this.synchronized {
-      transactionNumber.compareAndSet(Long.MaxValue, 1)
-      transactionNumber.getAndIncrement
-    }
+  /*
+  val last = List(1, 1, 2, 3, 5, 8)
+  def lastRecursive[A](ls: List[A]): A = ls match {
+    case h :: Nil  => println("H: " + h); h
+    case _ :: tail => println("Tail: " + tail);lastRecursive(tail)
+    case _         => println("Exc"); throw new NoSuchElementException
   }
-}
+  //println("Tail:" + lastRecursive(last))
 
-object Params extends Enumeration {
-  val terminal = "terminalId"
-  val cashier = "cashierId"
-  val cashNumber = "cashRegisterNumber"
-  val day = "businessDay"
-  val session = "sessionId"
-  val ref = "referenceNumber"
-  val ticket = "ticket"
-  val transId = "transactionTermnalId"
-  val transNum = "transactionNumber"
-  val gencode = "gencode"
-  val pincodes = "pincodes"
-  val pincode = "pincodeSerial"
-  val amount = "amount"
-  val transTime = "transactionTime"
-  val transStatus = "transactionStatus"
-  val isSuccessful = "isSuccessful"
-  val errCode = "errorCode"
-  val errMsg = "errorMessage"
-  val errDetail = "errorDetail"
-  val loyalty = "loyaltyCardNumber"
+  def penultimateBuiltin[A](ls: List[A]): A =
+    if (ls.isEmpty) throw new NoSuchElementException
+    else ls.init.last
+
+  println(penultimateBuiltin(last))
+
+
+  def lengthTailRecursive[A](ls: List[A]): Int = {
+    def lengthR(result: Int, curList: List[A]): Int = curList match {
+      case Nil       => result
+      case _ :: tail => lengthR(result + 1, tail)
+    }
+    lengthR(0, ls)
+  }
+
+  // More pure functional solution, with folds.
+  def lengthFunctional[A](ls: List[A]): Int = ls.foldLeft(0) { (c, _) => c + 1 }
+  val flat = List(List(1, 1), 2, List(3, List(5, 8)))
+  */
+
+  val instr = """@LGO:023;
+                |@FSN;
+                |@CTR;@FNY;Recharge Amount 20 AED
+                |@FSN;
+                |@CTR;@FNY; Card Number
+                |@FNY;@CTR;19253-48144-50592
+                |@FSN;Date : 20/12/2012 15:56:21
+                |@FSN;Merchant Name : 1005 Al Ramool
+                |@FSN;Merchant Id : 34753001
+                |@FSN;Terminal Id : 34753001001
+                |@FSN;Du Dealer Id : 555345
+                |@FSN;------------------------------------------@FSN;Transaction id :551_54-002
+                |@FSN;Pin Serial No :9005384679
+                |@FSN;------------------------------------------@FNY;@CTR;Recharge Information
+                |@FNY;Bonus options:
+                |@FNY;"more international":
+                |@FSN;Get AED 26 for international calls valid for 30 days.
+                |@FSN;Dial *138* card number # to recharge
+                |@FNY;"more credit":
+                |@FSN;Get AED 23 for all calls valid for 30 days
+                |@FSN;Dial *136* card number # to recharge
+                |@FNY;Regular option:
+                |@FNY;"more time":
+                |@FSN;Get AED 20 valid for life.
+                |@FSN;Dial *135* card number # to recharge
+                |@FNY;New option:
+                |@FNY;"more data":
+                |@FSN;Get 40MB of National Data valid for 30 days.
+                |@FSN;Dial *131* card number # to recharge
+                |@FSN;@CTR;------------------------------------------@FSY;@LFT;Recharge Offer:
+                |Get AED 40 instead of AED 26 with a validity of 30 days with the “more international” option.
+                |To activate this offer dial *135*111# before recharging.
+                |@FSN;@CTR;------------------------------------------@FSN;@CTR;Information shown above is correct at time of printing."""
+
+  //println("INSTR:" + instr.getClass)
+  //val instr2 = instr.replaceAll("@F(S|N)(N|Y);", "")
+  //val instr2 = instr.replaceAll("@[A-Z]{3}(;|:)", "").replaceAll("(-){2,}", "")
+  //val instr2 = instr.split("@") map(_.replaceAll("@[A-Z]{3}(;|:)", "").replaceAll("(-){2,}", "")) mkString
+  //val instr2 = instr.split(";") map(_.replaceAll("@[A-Z]{3}", "").replaceAll("(-){2,}", "&&").replace("|", "").trim.concat("\n")) mkString
+  //val instr2 = instr.split(";") map(_.replaceAll("@[A-Z]{3}", "))").replaceAll("(-){2,}", "&&").replace("|", "??"))
+  //for (n <- instr2) println(n)
+  //println("INSTR2:" + instr2)
+
+  /** Decode string in Base64 into readable view */
+  private def decodeBase64(str: String) = new String(DatatypeConverter.parseBase64Binary(str))
+
+  /** Clean ticket from tags for pos terminal (@... and many ----) */
+  //private def cleanTicket(str: String) = str.replaceAll("@[A-Z]{3};", "").replaceAll("(-){2,}", "") split("\n") map(_.trim) mkString("\n")
+  //private def cleanTicket(str: String) = str.replaceAll("@[A-Z]{3};", "").replaceAll("(-){2,}", "") split("\n") map(_ match {
+  //  case s => if (!s.startsWith("@LGO") && !s.equals("")) s.trim + "\n"
+  //}) mkString
+
+  private def cleanTicket(str: String) = str.split("@[A-Z]{3};") map(_ match {
+    case s => if (!s.startsWith("@LGO") && !s.startsWith("-")) s else ""
+  }) mkString
+
+
+  val tkt ="QExHTzowMjM7CkBGU047ICAKQENUUjtARk5ZO1JlY2hhcmdlIEFtb3VudCAyMCBBRUQKQEZTTjsgCkBDVFI7QEZOWTsgQ2FyZCBOdW1iZXIKQEZOWTtAQ1RSOzE5MjUzLTQ4MTQ0LTUwNTkyCkBGU047RGF0ZSAgICAgICAgICAgICAgOiAyMC8xMi8yMDEyIDE1OjU2OjIxCkBGU047TWVyY2hhbnQgTmFtZSAgICAgOiAxMDA1IEFsIFJhbW9vbApARlNOO01lcmNoYW50IElkICAgICAgIDogMzQ3NTMwMDEKQEZTTjtUZXJtaW5hbCBJZCAgICAgICA6IDM0NzUzMDAxMDAxCkBGU047RHUgRGVhbGVyIElkICAgICAgOiA1NTUzNDUKQEZTTjstLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0KQEZTTjtUcmFuc2FjdGlvbiBpZCAgICA6NTUxXzU0LTAwMgpARlNOO1BpbiBTZXJpYWwgTm8gICAgIDo5MDA1Mzg0Njc5CkBGU047LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkBGTlk7QENUUjtSZWNoYXJnZSBJbmZvcm1hdGlvbgpARk5ZO0JvbnVzIG9wdGlvbnM6CkBGTlk7Im1vcmUgaW50ZXJuYXRpb25hbCI6CkBGU047R2V0IEFFRCAyNiBmb3IgaW50ZXJuYXRpb25hbCBjYWxscyB2YWxpZCBmb3IgMzAgZGF5cy4KQEZTTjtEaWFsICoxMzgqIGNhcmQgbnVtYmVyICMgdG8gcmVjaGFyZ2UKQEZOWTsibW9yZSBjcmVkaXQiOgpARlNOO0dldCBBRUQgMjMgZm9yIGFsbCBjYWxscyB2YWxpZCBmb3IgMzAgZGF5cwpARlNOO0RpYWwgKjEzNiogY2FyZCBudW1iZXIgIyB0byByZWNoYXJnZQpARk5ZO1JlZ3VsYXIgb3B0aW9uOgpARk5ZOyJtb3JlIHRpbWUiOgpARlNOO0dldCBBRUQgMjAgdmFsaWQgZm9yIGxpZmUuCkBGU047RGlhbCAqMTM1KiBjYXJkIG51bWJlciAjIHRvIHJlY2hhcmdlCkBGTlk7TmV3IG9wdGlvbjoKQEZOWTsibW9yZSBkYXRhIjoKQEZTTjtHZXQgNDBNQiBvZiBOYXRpb25hbCBEYXRhIHZhbGlkIGZvciAzMCBkYXlzLgpARlNOO0RpYWwgKjEzMSogY2FyZCBudW1iZXIgIyB0byByZWNoYXJnZQpARlNOO0BDVFI7LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkBGU1k7QExGVDtSZWNoYXJnZSBPZmZlcjoKR2V0IEFFRCA0MCBpbnN0ZWFkIG9mIEFFRCAyNiB3aXRoIGEgdmFsaWRpdHkgb2YgMzAgZGF5cyB3aXRoIHRoZSDigJxtb3JlIGludGVybmF0aW9uYWzigJ0gb3B0aW9uLgpUbyBhY3RpdmF0ZSB0aGlzIG9mZmVyIGRpYWwgKjEzNSoxMTEjIGJlZm9yZSByZWNoYXJnaW5nLgoKQEZTTjtAQ1RSOy0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQpARlNOO0BDVFI7SW5mb3JtYXRpb24gc2hvd24gYWJvdmUgaXMgY29ycmVjdCBhdCB0aW1lIG9mIHByaW50aW5nLgo"
+
+  val tktdec = decodeBase64(tkt)
+  //println("TKT:"+tktdec)
+  val cln = cleanTicket(tktdec)
+  //println("CLEAN:" + cln)
+
+  val sequence = new Sequence
+
+
 }
