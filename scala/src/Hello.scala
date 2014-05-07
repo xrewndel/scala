@@ -1,4 +1,4 @@
-import net.fmb.integrator.serviceprovider.efresh.Sequence
+import java.util.Date
 import scalikejdbc._, SQLInterpolation._
 import java.lang.String
 import java.security.{PublicKey, KeyFactory, PrivateKey}
@@ -50,14 +50,14 @@ object Hello extends App {
   //println("PIN= "+pinMap)
 
   val last = xml2Map(response) -("PINDATA") ++ xml2Map(response \ "PINDATA")
-  println("LAST: " + last)
+  //println("LAST: " + last)
 
   def xml2Map(obj: scala.xml.NodeSeq) = Map(obj \ "_" filter { _.isInstanceOf[xml.Elem] } map { el => el.label -> el.text.trim }: _*)
   val test = xml2Map(pin)
   //println("TEST: " + test)
 
   val o2m = object2Map(response)
-  println("\nO2M: " + o2m)
+  //println("\nO2M: " + o2m)
 
   def object2Map(o: AnyRef, exclude: String = ""): Map[String, String] =
     (ListMap[String, String]() /: o.getClass.getDeclaredFields.filterNot(_.getName.startsWith("$"))) { (a, f) =>
@@ -70,9 +70,60 @@ object Hello extends App {
   val result = (response \ "PINDATA") map { x => ((x \ "@name").text -> x) } toMap
   val err = (for{x <- response \ "PINDATA"} yield (x \ "@name", x)).toMap
   //println("ERR:" + result)
-  println(response.contains("BALANCE"))
+  //println(response.contains("BALANCE"))
 
-  val sequence = new Sequence
+  val db = "test.db"
+  val sequence = new Sequence(db)
+  sequence.checkDB()
 
+  /*Sequence.checkDB(db)
+  if (!Sequence.tableExist(table)) {
+    println("Create table")
+    Sequence.createTable
+  }
+  else println("Table exists")
+
+  Sequence.set("123456")
+  println("Seq: " + Sequence.get)
+  Sequence.set("qwerqwer")
+  println("Seq: " + Sequence.get)
+  Sequence.set("4f4")
+  println("Seq: " + Sequence.get)
+  Sequence.set("0000_")
+  Sequence.set("+++++")
+  println("Seq: " + Sequence.get)
+  */
+
+  def calc[T](block: =>T) = {
+    val begin1 = System.nanoTime()
+    val res = block
+    println("Exec= " + (System.nanoTime() - begin1))
+  }
+
+  /*calc {
+    println("SEQ: " + sequence.get())
+    sequence.set("987")
+    println("SEQ: " + sequence.get())
+    sequence.set("!@#%%^")
+    println("SEQ: " + sequence.get())
+    sequence.set("3d3")
+    println("SEQ: " + sequence.get())
+    sequence.set("222")
+    println("SEQ: " + sequence.get())
+  } */
+
+  println("Locked: " + sequence.isLocked())
+
+  /*calc {
+    println("SEQ2: " + sequence.get())
+    sequence.set2("987")
+    println("SEQ2: " + sequence.get2())
+    sequence.set2("!@#%%^")
+    println("SEQ2: " + sequence.get2())
+    sequence.set2("3d3")
+    println("SEQ2: " + sequence.get2())
+    sequence.set2("222")
+    println("SEQ2: " + sequence.get2())
+  } */
 
 }
