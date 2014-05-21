@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="scalikejdbc-interpolation-core_2.10-1.7.7">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/../lib/scalikejdbc-interpolation-core_2.10-1.7.7.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

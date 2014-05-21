@@ -39,7 +39,7 @@ class Sequence(db: String) {
   // create table and initialize lock with value 0 (unlock)
   private def createTable = {
     sql"create table kv (sequence varchar(64), lock integer not null primary key)".execute.apply()
-    sql"insert into kv (lock) values (0)".update.apply()
+    sql"insert into kv (sequence, lock) values (0, 0)".update.apply()
   }
 
   // SQL like
@@ -81,7 +81,17 @@ class Sequence(db: String) {
   }
 
   def get(): String = {
-    lock
+    /** Try to get lock */
+    def checkLock(n: Int): Unit = {
+      if (isLocked) {
+        if (n < 1) throw new RuntimeException("Waiting for lock timeout")
+        Thread sleep 1500
+        checkLock(n - 1)
+      }
+    }
+    checkLock(9)
+
+    lock // locking
     val s = Sqn.syntax("s")
     withSQL { select(s.result.sequence).from(Sqn as s).where.eq(column.lock, 1) }
       .map(rs => rs.string(s.resultName.sequence)).single.apply() match {
@@ -91,6 +101,7 @@ class Sequence(db: String) {
   }
 
   def isLocked(): Boolean = {
+    println("Call isLocked")
     val s = Sqn.syntax("s")
     withSQL { select(s.result.lock).from(Sqn as s) }
       .map(rs => rs.string(s.resultName.lock)).single.apply() match {
