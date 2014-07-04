@@ -1,0 +1,12 @@
+target/
+project/target/
+*.iml
+.idea/
+.idea_modules/
+*.log
+*.log.*
+.history
+local.properties
+.classpath
+.project
+.settings/

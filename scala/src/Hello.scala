@@ -141,23 +141,20 @@ object Hello extends App {
       else a
     }
 
-  val ff = 12345
-  if (ff == 35 ) {
 
+  val dd : Option[String] = None
+
+  //def isOk(): Boolean = dd match {
+  //  case Some(s) => if (s.equals("0")) true; else false
+  //  case _ => false
+  //}
+
+
+  def isOk(): Boolean = dd match {
+    case Some(s) => s.equals("0")
+    case _ => false
   }
 
-  def pinRequest(i: Int): Int = {
-    if (i == 1)  throw new RuntimeException("FFF")
-    else 245
-  }
-
-  val resultPin = try pinRequest(33)
-  catch {
-    case ex =>
-      throw new RuntimeException("Request failed", ex)
-  }
-  finally {
-     if (resultPin) println("NULL")
-  }
+  println("isOk: " + isOk())
 
 }
